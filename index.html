@@ -175,14 +175,14 @@ window.addEventListener('resize',()=>{resize();if(!G.on)drawBg(0,0);});
 resize();
 
 // ── Prefs ─────────────────────────────────────────────────────────
-let best    = +localStorage.getItem('kbest')||0;
-let sndOn   = localStorage.getItem('kSnd')!=='off';
-let curSkin = localStorage.getItem('kSkin')||'eiffel';
-let unlocked= JSON.parse(localStorage.getItem('kUnlk')||'["eiffel"]');
+let best    = +localStorage.getItem('tb_best')||0;
+let sndOn   = localStorage.getItem('tb_snd')!=='off';
+let curSkin = localStorage.getItem('tb_skin')||'eiffel';
+let unlocked= JSON.parse(localStorage.getItem('tb_unlk')||'["eiffel"]');
 let dailyBonus = 0;
 
-function savePref(){ localStorage.setItem('kbest',best);localStorage.setItem('kSnd',sndOn?'on':'off');
-  localStorage.setItem('kSkin',curSkin);localStorage.setItem('kUnlk',JSON.stringify(unlocked)); }
+function savePref(){ localStorage.setItem('tb_best',best);localStorage.setItem('tb_snd',sndOn?'on':'off');
+  localStorage.setItem('tb_skin',curSkin);localStorage.setItem('tb_unlk',JSON.stringify(unlocked)); }
 
 document.getElementById('h-best').textContent = best;
 document.getElementById('menu-best').textContent = `Best: ${best} floors`;
@@ -467,7 +467,7 @@ function startGame(resume=false){
     blocks=[{x:cx-bw/2,y:gy,w:bw,cp:sk.base,lbl:'🏗️'}];
     const sw=bw*.88;
     mb={x:cx-sw/2,y:gy-BH,w:sw,dir:1,cp:sk.colors[0]};
-    camY=0;floor=0;score=dailyBonus;dailyBonus=0;speed=3.2;combo=0;
+    camY=0;floor=0;score=dailyBonus;dailyBonus=0;speed=2.4;combo=0;
   }
   G={on:true};
   document.getElementById('h-floor').textContent=floor;
@@ -505,7 +505,7 @@ function drop(){
     const msg=combo>=5?`🔥 x${combo} COMBO!`:combo>=3?`⚡ x${combo}`:' ✨ PERFECT!';
     toast(msg,combo>=3?'#ff6b6b':'#ffd166',combo>=5?32:26);
     sfxPerfect();shake(2,6);burst(nx,mb.y,nw,'#ffd166',22);
-    slowMo=45;glowT=30;
+    slowMo=20;glowT=20;
     const go=document.getElementById('glow-overlay');go.style.opacity='1';setTimeout(()=>go.style.opacity='0',280);
   } else {
     const cl=mb.x<top.x,cx2=cl?mb.x:top.x+top.w,cw=cl?(top.x-mb.x):(mb.x+mb.w-(top.x+top.w));
@@ -515,13 +515,15 @@ function drop(){
   }
   floor++;score+=10;
   document.getElementById('h-floor').textContent=floor;
-  if(floor>best){best=floor;document.getElementById('h-best').textContent=best;localStorage.setItem('kbest',best);}
+  if(floor>best){best=floor;document.getElementById('h-best').textContent=best;localStorage.setItem('tb_best',best);}
   if(MILES[floor])mile(MILES[floor], floor===100);
   const sk=skin();
   blocks.push({x:nx,y:mb.y,w:nw,cp:sk.colors[floor%sk.colors.length],lbl:floor});
   landAnim={x:nx,y:mb.y,w:nw,cp:sk.colors[floor%sk.colors.length],lbl:floor,sc:1.22,t:8};
-  mb={x:C.width/2-nw/2,y:mb.y-BH,w:nw,dir:mb.dir,cp:sk.colors[(floor+1)%sk.colors.length]};
-  speed=3.2+floor*.055;
+  // after perfect: spawn from edge so player can't immediately tap again
+  const startX = perf ? (mb.dir>0 ? -nw : C.width) : C.width/2-nw/2;
+  mb={x:startX,y:mb.y-BH,w:nw,dir:perf?(mb.dir>0?1:-1):mb.dir,cp:sk.colors[(floor+1)%sk.colors.length]};
+  speed=2.4+floor*.045;
   if(nw<18){sfxOver();gameOver();}
 }
 
@@ -599,7 +601,7 @@ document.getElementById('btn-skins-open').onclick=()=>{buildSkins();show('skins'
 document.getElementById('btn-skins-back').onclick=()=>show('menu');
 document.getElementById('btn-snd-menu').onclick=()=>{sndOn=!sndOn;savePref();updSndBtns();if(sndOn){initAC();bgMusic();}else clearTimeout(musicTimer);};
 document.getElementById('snd-game').onclick=()=>{sndOn=!sndOn;savePref();updSndBtns();};
-document.getElementById('btn-retry').onclick=startGame;
+document.getElementById('btn-retry').onclick=()=>startGame(false);
 document.getElementById('btn-go-menu').onclick=()=>{G.on=false;cancelAnimationFrame(raf);show('menu');drawBg(0,0);};
 document.getElementById('btn-resume').onclick=()=>{show(null);loop();};
 document.getElementById('btn-restart-p').onclick=startGame;
@@ -607,8 +609,15 @@ document.getElementById('btn-pause-menu').onclick=()=>{G.on=false;cancelAnimatio
 document.getElementById('pause-btn').onclick=()=>{G.on=false;cancelAnimationFrame(raf);show('pause');};
 
 // ── Input ─────────────────────────────────────────────────────────
-C.addEventListener('pointerdown',e=>{e.preventDefault();drop();});
-document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowDown'){e.preventDefault();drop();}});
+let canDrop=true;
+function tryDrop(){
+  if(!canDrop||slowMo>0)return;
+  canDrop=false;
+  drop();
+  setTimeout(()=>canDrop=true, 500);
+}
+C.addEventListener('pointerdown',e=>{e.preventDefault();tryDrop();});
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowDown'){e.preventDefault();tryDrop();}});
 
 // ── Init ──────────────────────────────────────────────────────────
 drawBg(0,0);
